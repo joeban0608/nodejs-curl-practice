@@ -54,6 +54,11 @@ app.post("/data", (req, res) => {
 });
 
 /**
+ * 將 uploads 資料夾設為靜態資源目錄
+ */
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+/**
  * POST method - image upload
  * upload.single("file")
  * 對應   curl -F "file" 的keyname
@@ -61,24 +66,23 @@ app.post("/data", (req, res) => {
  * - curl -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
  * - curl -F file=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
  */
-app.post("/upload", (req, res) => {
-  const requestData = {
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    body: req.body,
-  };
-  console.log("requestData:", requestData);
-  upload.single("file")(req, res, function (err) {
-    if (err) {
-      console.error("Upload error:", err);
-      return res
-        .status(500)
-        .json({ error: "File upload failed", detail: err.message });
-    }
+app.post("/upload", upload.single("file"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
 
-    console.log("Uploaded file:", req.file);
-    res.json({ message: "File upload successful", file: req.file });
+  const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${
+    req.file.filename
+  }`;
+
+  res.json({
+    message: "File upload successful",
+    file: {
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      url: fileUrl,
+    },
   });
 });
 
