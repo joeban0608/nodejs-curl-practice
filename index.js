@@ -63,17 +63,17 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 /**
  * POST method - image upload
- * upload.single("file")
- * 對應   curl -F "file" 的keyname
+ * upload.single("filepath")
+ * 對應   curl -F "filepath" 的keyname
  * image example:
- * - curl -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
- * - curl -F name=testName -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * - curl -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * - curl -F name=testName -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
  * video example:
- * - curl -F file=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
+ * - curl -F filepath=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
  * else example:
  * - curl -F name=joeban -F shoesize=11  http://localhost:3000/upload
  */
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/upload", upload.single("filepath"), (req, res) => {
   const requestData = {
     method: req.method,
     url: req.url,
