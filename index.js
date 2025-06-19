@@ -1,7 +1,6 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path"); // ✅ 加上這行
-const crypto = require("crypto");
 const multer = require("multer");
 
 const uploadDir = path.join(__dirname, "uploads");
@@ -15,9 +14,13 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    const uuid = crypto.randomUUID();
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuid}${ext}`);
+    const reqName = req?.body?.name;
+    const ext = path.extname(file.originalname); // etc .png, .jpg, .mov
+    const formatFileName = reqName
+      ? `${Date.now()}-${reqName}${ext}`
+      : Date.now() + ext; // Use the name from the request body if available
+
+    cb(null, formatFileName);
   },
 });
 const upload = multer({ storage });
@@ -62,9 +65,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
  * POST method - image upload
  * upload.single("file")
  * 對應   curl -F "file" 的keyname
- * example:
+ * image example:
  * - curl -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * - curl -F name=testName -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * video example:
  * - curl -F file=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
+ * - curl -F name=joeban -F shoesize=11  http://localhost:3000/upload
  */
 app.post("/upload", upload.single("file"), (req, res) => {
   const requestData = {
@@ -75,9 +81,6 @@ app.post("/upload", upload.single("file"), (req, res) => {
     file: req.file,
   };
   console.log("requestData:", requestData);
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
-  }
 
   const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${
     req.file.filename
@@ -90,6 +93,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
       mimeType: req.file.mimetype,
       size: req.file.size,
       url: fileUrl,
+      file: req.file,
     },
   });
 });
@@ -98,15 +102,3 @@ app.post("/upload", upload.single("file"), (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
-
-/* 
-  ref: https://curl.se/docs/manpage.html#-d
-  - urlencoded: curl -d "name=curl" http://localhost:3000/data
-  - JSON: curl -H "Content-Type: application/json" -d '{"name":"curl"}' http://localhost:3000/data
-*/
-
-/* 
-  ref: https://curl.se/docs/manpage.html#-F
-  curl -F file=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
-  curl -F file=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
-*/
