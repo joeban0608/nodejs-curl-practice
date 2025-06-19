@@ -97,7 +97,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
       mimeType: req.file.mimetype,
       size: req.file.size,
       url: fileUrl,
-      file: req.file,
+      // file: req.file,
     },
   });
 });
