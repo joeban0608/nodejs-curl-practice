@@ -67,6 +67,14 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
  * - curl -F file=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
  */
 app.post("/upload", upload.single("file"), (req, res) => {
+  const requestData = {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body,
+    file: req.file,
+  };
+  console.log("requestData:", requestData);
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
