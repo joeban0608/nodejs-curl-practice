@@ -67,14 +67,34 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
  * upload.single("filepath")
  * 對應   curl -F "filepath" 的keyname
  * image example:
- * - curl -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
- * - curl -F name=testName -F description="testDescription" -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * - curl -i -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
+ * - curl -i -F name=testName -F filepath=@/Users/hongbangzhou/Downloads/joebanV1.png http://localhost:3000/upload
  * video example:
- * - curl -F filepath=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
+ * - curl -i -F filepath=@/Users/hongbangzhou/Downloads/screenshot.mov http://localhost:3000/upload
  * else example:
- * - curl -F name=joeban -F shoesize=11  http://localhost:3000/upload
+ * - curl -i -F name=joeban -F shoesize=11  http://localhost:3000/upload
  */
 app.post("/upload", (req, res) => {
+  const uploadId =
+    "upload:MTphdHRhY2htZW50OmY4N2IwMGNkLWRlM2YtNGJhMC04YjM2LWNlMGVlMTgyMTZmYj9maWxlX25hbWU9dGVzdE5hbWUmZmlsZV9sZW5ndGg9NTUxMzY1NCZmaWxlX3R5cGU9YXBwbGljYXRpb24lMkZvY3RldC1zdHJlYW0=?sig=ARZ78BHj02DTrgsuOyQ";
+  const accessToken =
+    "EAAY8shITnb0BOzpM8z1SkVqT3PpWHZBYOuceZCzUyD7d23TgkoluD6Ulh8CNZCLtSohUZCQfeNi4ukRsaXUOUgYIQrB0147RlBB3fI6ZCrF5Hr5hynCWTcx2meqHRDNfnCVMhz00Ug6jHuiDl4m1GIVfLN38R9YmKoy65MkZCSn8EhqXwiCHsw3ZAeJVY0McjU7wmZAaR6e0Bm1H2jIuPH3OwGyoJj878RykeQrQ0rUhP9j3W9lNrRHiBwZDZD";
+  function uploadFileToFacebook(data) {
+    if (!data) {
+      throw new Error("No data provided for upload.");
+    }
+    const headers = {
+      Authorization: `OAuth ${accessToken}`,
+      file_offset: "0",
+      "Content-Type": "application/octet-stream",
+    };
+    const url = `https://graph.facebook.com/v23.0/${uploadId}`;
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: data,
+    });
+  }
   const requestData = {
     method: req.method,
     url: req.url,
@@ -84,7 +104,16 @@ app.post("/upload", (req, res) => {
   console.log("requestData:", requestData);
   const bb = busboy({ headers: req.headers });
   let reqName;
-  let resFile = {};
+  /**
+   * type resFile = {
+    url: "",
+    filename: "",
+    mimetype: "",
+    originalname: "",
+    size: 0,
+  } | null
+   */
+  let resFile = null;
   let totalSize = 0;
 
   /**
@@ -118,15 +147,19 @@ app.post("/upload", (req, res) => {
     }
   });
   bb.on("file", (_name, file, info) => {
+    resFile = {};
+    // Use the name from the request body if available
     const formatName = reqName
-      ? `${Date.now()}-${reqName}${path.extname(info.filename)}`
-      : `${Date.now()}-${info.filename}`; // Use the name from the request body if available
+      ? `${reqName}${path.extname(info.filename)}`
+      : `${info.filename}`;
+
+    // use file.pipe(fs.createWriteStream(saveTo)) to save the file with streaming
     const saveTo = path.join(uploadDir, formatName);
+
     const fileUrl = `${req.protocol}://${req.get(
       "host"
     )}/uploads/${formatName}`;
-
-    resFile.url = fileUrl; // Set the URL of the uploaded file
+    resFile.url = fileUrl;
     if (reqName) {
       resFile.filename = reqName;
     }
@@ -137,18 +170,35 @@ app.post("/upload", (req, res) => {
       resFile.originalname = info.filename;
     }
 
-    file.on("data", (data) => {
+    // Update the size as data comes in
+    file.on("data", async (data) => {
+      console.log("data.length", data.length);
+      let storeData = data;
       totalSize += data.length;
-      resFile.size = totalSize; // Update the size as data comes in
+      resFile.size = totalSize;
+      try {
+        const uploadFileToFacebookRes = await uploadFileToFacebook(storeData);
+        const uploadFileToFacebookResJson =
+          await uploadFileToFacebookRes.json();
+        console.log(
+          "uploadFileToFacebookResJson:",
+          uploadFileToFacebookResJson
+        );
+      } catch (error) {
+        console.error("Error uploading file to Facebook:", error);
+      }
     });
 
     file.pipe(fs.createWriteStream(saveTo));
   });
 
   bb.on("close", () => {
-    res.writeHead(200, { Connection: "close" });
-    // res.end(`That's all folks!`);
+    if (resFile === null) {
+      res.writeHead(400, { Connection: "close" });
+      return res.end("No file uploaded or no valid file provided.");
+    }
 
+    res.writeHead(200, { Connection: "close" });
     res.end(
       JSON.stringify(
         {
