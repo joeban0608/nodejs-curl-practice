@@ -318,6 +318,14 @@ app.post("/upload", upload.single("filepath"), async (req, res) => {
       });
     }
 
+    // 刪除本地檔案
+    try {
+      await fs.promises.unlink(`./uploads/${req.file.filename}`);
+      console.log(`Deleted local file: ${req.file.filename}`);
+    } catch (err) {
+      console.error("Error deleting file:", err);
+    }
+
     return res.json({
       message: "File upload successful",
       file: {
